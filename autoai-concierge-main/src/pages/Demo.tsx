@@ -5,12 +5,38 @@ import { queryHuggingFace } from '@/api/chat';
 import { CarCard } from '@/components/chat/CarCard';
 import { LeadForm } from '@/components/chat/LeadForm';
 import { ChatMessage } from '@/components/chat/ChatMessage';
+import { getMessages, saveMessage } from '@/lib/supabase';
 
 export default function Demo() {
     const [input, setInput] = useState("");
+
+    // Session Management
+    const [sessionId] = useState(() => {
+        const stored = localStorage.getItem("autoai_session_id");
+        if (stored) return stored;
+        const newId = crypto.randomUUID();
+        localStorage.setItem("autoai_session_id", newId);
+        return newId;
+    });
+
     const [messages, setMessages] = useState([
         { role: "assistant", content: "Hey there! 🚗 Welcome to AutoAI. I'm Kevin, your personal car expert. Looking for anything specific today, or just browsing our new arrivals?" }
     ]);
+
+    // Load History
+    useEffect(() => {
+        async function load() {
+            const history = await getMessages(sessionId);
+            if (history && history.length > 0) {
+                setMessages(history);
+            } else {
+                // Persist the initial greeting for new sessions
+                const initial = { role: "assistant", content: "Hey there! 🚗 Welcome to AutoAI. I'm Kevin, your personal car expert. Looking for anything specific today, or just browsing our new arrivals?" };
+                saveMessage(sessionId, initial.role, initial.content, null);
+            }
+        }
+        load();
+    }, [sessionId]);
     const [isLoading, setIsLoading] = useState(false);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [activeInventory, setActiveInventory] = useState([]);
@@ -122,6 +148,7 @@ export default function Demo() {
     const addMessage = (role: string, content: string, cards: any = null) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setMessages((prev: any[]) => [...prev, { role, content, cards }]);
+        saveMessage(sessionId, role, content, cards);
     };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
