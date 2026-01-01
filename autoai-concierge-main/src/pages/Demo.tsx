@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Zap, Send, Sparkles } from 'lucide-react';
+import { Zap, Send, Sparkles, MessageSquarePlus, History } from 'lucide-react';
 import { CARS } from '@/data/cars';
 import { queryHuggingFace } from '@/api/chat';
 import { CarCard } from '@/components/chat/CarCard';
 import { LeadForm } from '@/components/chat/LeadForm';
 import { ChatMessage } from '@/components/chat/ChatMessage';
-import { getMessages, saveMessage } from '@/lib/supabase';
+import { getMessages, saveMessage, getChatSessions } from '@/lib/supabase';
 
 export default function Demo() {
     const [input, setInput] = useState("");
 
     // Session Management
-    const [sessionId] = useState(() => {
+    const [sessionId, setSessionId] = useState(() => {
         const stored = localStorage.getItem("autoai_session_id");
         if (stored) return stored;
         const newId = crypto.randomUUID();
@@ -19,9 +19,64 @@ export default function Demo() {
         return newId;
     });
 
-    const [messages, setMessages] = useState([
-        { role: "assistant", content: "Hey there! 🚗 Welcome to AutoAI. I'm Kevin, your personal car expert. Looking for anything specific today, or just browsing our new arrivals?" }
-    ]);
+    const initialGreeting = { role: "assistant", content: "Hey there! 🚗 Welcome to AutoAI. I'm Kevin, your personal car expert. Looking for anything specific today, or just browsing our new arrivals?" };
+
+    const [messages, setMessages] = useState([initialGreeting]);
+
+    // Start a new chat session
+    const startNewChat = async () => {
+        const newId = crypto.randomUUID();
+        localStorage.setItem("autoai_session_id", newId);
+        setSessionId(newId);
+        setMessages([initialGreeting]);
+        saveMessage(newId, initialGreeting.role, initialGreeting.content, null);
+        setActiveInventory([]);
+        setSelectedCar(null);
+        setShowLeadForm(false);
+        // Refresh chat sessions list
+        const sessions = await getChatSessions();
+        setChatSessions(sessions);
+    };
+
+    // Chat history state
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [chatSessions, setChatSessions] = useState<any[]>([]);
+
+    // Load chat sessions on mount
+    useEffect(() => {
+        async function loadSessions() {
+            const sessions = await getChatSessions();
+            setChatSessions(sessions);
+        }
+        loadSessions();
+    }, []);
+
+    // Switch to a different chat session
+    const loadSession = async (targetSessionId: string) => {
+        if (targetSessionId === sessionId) return;
+        localStorage.setItem("autoai_session_id", targetSessionId);
+        setSessionId(targetSessionId);
+        const history = await getMessages(targetSessionId);
+        if (history && history.length > 0) {
+            setMessages(history);
+        }
+    };
+
+    // Format relative time
+    const formatTime = (dateStr: string) => {
+        const date = new Date(dateStr);
+        const now = new Date();
+        const diffMs = now.getTime() - date.getTime();
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins}m ago`;
+        if (diffHours < 24) return `${diffHours}h ago`;
+        if (diffDays < 7) return `${diffDays}d ago`;
+        return date.toLocaleDateString();
+    };
 
     // Load History
     useEffect(() => {
@@ -31,11 +86,11 @@ export default function Demo() {
                 setMessages(history);
             } else {
                 // Persist the initial greeting for new sessions
-                const initial = { role: "assistant", content: "Hey there! 🚗 Welcome to AutoAI. I'm Kevin, your personal car expert. Looking for anything specific today, or just browsing our new arrivals?" };
-                saveMessage(sessionId, initial.role, initial.content, null);
+                saveMessage(sessionId, initialGreeting.role, initialGreeting.content, null);
             }
         }
         load();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sessionId]);
     const [isLoading, setIsLoading] = useState(false);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -319,24 +374,63 @@ export default function Demo() {
                 {/* Background Gradient to match Landing Page */}
                 <div className="absolute inset-0 bg-gradient-radial from-background via-background to-gray-50 opacity-60 pointer-events-none" />
 
-                <div className="relative z-10">
-                    <div className="flex items-center gap-3 mb-8">
+                <div className="relative z-10 flex flex-col h-full">
+                    <div className="flex items-center gap-3 mb-6">
                         <div className="bg-gray-100 p-2.5 rounded-xl">
                             <Zap className="text-foreground fill-foreground" size={24} />
                         </div>
                         <h1 className="text-2xl font-bold tracking-tight text-foreground">AutoAI</h1>
                     </div>
 
-                    <div className="space-y-6">
-                        <div className="bg-white p-4 rounded-xl border border-border shadow-sm">
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                                <p className="text-sm font-medium text-foreground">Live Agent Active</p>
-                            </div>
-                            <p className="text-xs text-muted-foreground leading-relaxed">
-                                I can help you find cars, compare specs, and schedule test drives instantly.
-                            </p>
+                    <button
+                        onClick={startNewChat}
+                        className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 py-3 rounded-xl hover:bg-primary/90 transition-all shadow-md hover:shadow-lg font-medium mb-4"
+                    >
+                        <MessageSquarePlus size={18} />
+                        New Chat
+                    </button>
+
+                    {/* Chat History */}
+                    <div className="flex-1 overflow-hidden flex flex-col">
+                        <div className="flex items-center gap-2 mb-3 text-muted-foreground">
+                            <History size={14} />
+                            <span className="text-xs font-medium uppercase tracking-wide">Recent Chats</span>
                         </div>
+                        <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                            {chatSessions.map((session) => (
+                                <button
+                                    key={session.session_id}
+                                    onClick={() => loadSession(session.session_id)}
+                                    className={`w-full text-left p-3 rounded-lg transition-all ${session.session_id === sessionId
+                                            ? 'bg-primary/10 border border-primary/20'
+                                            : 'bg-white hover:bg-gray-100 border border-border'
+                                        }`}
+                                >
+                                    <p className="text-sm font-medium text-foreground truncate">
+                                        {session.preview.slice(0, 40)}{session.preview.length > 40 ? '...' : ''}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        {formatTime(session.created_at)}
+                                    </p>
+                                </button>
+                            ))}
+                            {chatSessions.length === 0 && (
+                                <p className="text-xs text-muted-foreground text-center py-4">
+                                    No chat history yet
+                                </p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Live Agent Status */}
+                    <div className="bg-white p-4 rounded-xl border border-border shadow-sm mt-4">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                            <p className="text-sm font-medium text-foreground">Live Agent Active</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                            I can help you find cars, compare specs, and schedule test drives instantly.
+                        </p>
                     </div>
                 </div>
             </div>
