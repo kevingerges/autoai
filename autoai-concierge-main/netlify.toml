@@ -1,0 +1,12 @@
+[build]
+  command = "npm install && npm run build"
+  publish = "dist"
+
+[build.environment]
+  # Supabase URL and anon key are designed to be public (client-side) keys.
+  # The anon key has Row Level Security (RLS) protections and is safe to expose.
+  # We omit them from secrets scanning to prevent false positive build failures.
+  SECRETS_SCAN_OMIT_KEYS = "VITE_SUPABASE_ANON_KEY,VITE_SUPABASE_URL"
+
+[functions]
+  directory = "netlify/functions"
