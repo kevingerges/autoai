@@ -1,0 +1,4 @@
+[build]
+  base = "autoai-concierge-main"
+  command = "npm install && npm run build"
+  publish = "dist"
