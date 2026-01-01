@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoAI | Premium Car Buying Experience</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+
+        .slide-in {
+            animation: slideIn 0.3s ease-out forwards;
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        @keyframes slideIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        .typing-dot {
+            animation: typing 1.4s infinite ease-in-out both;
+        }
+
+        .typing-dot:nth-child(1) {
+            animation-delay: -0.32s;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: -0.16s;
+        }
+
+        @keyframes typing {
+
+            0%,
+            80%,
+            100% {
+                transform: scale(0);
+            }
+
+            40% {
+                transform: scale(1);
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gradient-to-br from-slate-100 to-blue-50 h-screen overflow-hidden text-slate-800">
+
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // ==========================================
+        // CONFIG & DATA
+        // ==========================================
+        const HF_API_KEY = "PLACEHOLDER_KEY"; // Replaced for security
+        // Chat-capable model on Hugging Face Inference
+        const MODEL_ID = "Qwen/Qwen2.5-7B-Instruct";
+
+        const CARS = [
+            {
+                id: 1,
+                make: 'Tesla',
+                model: 'Model 3',
+                year: 2023,
+                price: 42990,
+                originalPrice: 45990,
+                mileage: 5000,
+                color: 'Pearl White',
+                features: ['Autopilot', 'Premium Audio', 'Glass Roof', 'Heated Seats'],
+                fuelType: 'Electric',
+                image: 'https://images.unsplash.com/photo-1560958089-b8a1929cea89?w=500&q=80'
+            },
+            {
+                id: 2,
+                make: 'Porsche',
+                model: 'Taycan',
+                year: 2022,
+                price: 89900,
+                originalPrice: 95000,
+                mileage: 12000,
+                color: 'Gentian Blue',
+                features: ['Performance Battery', 'Sport Chrono', 'Leather Interior', '21" Wheels'],
+                fuelType: 'Electric',
+                image: 'https://images.unsplash.com/photo-1614200187524-dc411390537d?w=500&q=80'
+            },
+            {
+                id: 3,
+                make: 'BMW',
+                model: 'M4 Competition',
+                year: 2024,
+                price: 78500,
+                originalPrice: 78500,
+                mileage: 500,
+                color: 'Sao Paulo Yellow',
+                features: ['Carbon Bucket Seats', 'Laser Light', 'Head-up Display', 'Track Package'],
+                fuelType: 'Gasoline',
+                image: 'https://images.unsplash.com/photo-1617531653332-bd46c24f2068?w=500&q=80'
+            },
+            {
+                id: 4,
+                make: 'Ford',
+                model: 'Mustang Mach-E',
+                year: 2023,
+                price: 52000,
+                originalPrice: 55000,
+                mileage: 1500,
+                color: 'Rapid Red',
+                features: ['Extended Range', 'Co-Pilot360', 'Panoramic Roof', 'B&O Sound'],
+                fuelType: 'Electric',
+                image: 'https://images.unsplash.com/photo-1617788138017-80ad40651399?w=500&q=80'
+            },
+            {
+                id: 5,
+                make: 'Mercedes-Benz',
+                model: 'G-Wagon',
+                year: 2021,
+                price: 145000,
+                originalPrice: 160000,
+                mileage: 25000,
+                color: 'Matte Black',
+                features: ['Night Package', 'Massage Seats', 'Burmester Audio', 'V8 Biturbo'],
+                fuelType: 'Gasoline',
+                image: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=500&q=80'
+            }
+        ];
+
+        // ==========================================
+        // ICONS (Inline SVGs to avoid CDN issues)
+        // ==========================================
+        const Zap = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>;
+        const Send = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>;
+        const Sparkles = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /></svg>;
+        const Shield = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>;
+        const MapPin = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>;
+        // Car icon replacement
+        const CarIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2" /><circle cx="7" cy="17" r="2" /><circle cx="17" cy="17" r="2" /><path d="M16 17H8" /></svg>;
+
+
+        // ==========================================
+        // AI LOGIC
+        // ==========================================
+
+        const SYSTEM_PROMPT = `
+You are "Kevin", an enthusiastic and professional car sales AI for "AutoAI".
+Goal: text like a real salesperson—human, brief, a little informal (contractions, light punctuation), no templates—with the aim of booking a visit/test drive or reviewing numbers together in person.
+
+Voice & style:
+- English only unless the user explicitly switches; do not mix languages.
+- No emojis or emoji words. 1–2 short sentences max, one question at a time.
+- Contractions are good; punctuation can be light/conversational. Avoid stiff phrasing.
+- Never use placeholders like [Model Year]; if unsure, say you'll check.
+- Sound like texting, not a bot: natural wording, no bullet dumps to the user.
+- Avoid “got it” and stopping; always pair acknowledgment with a next step.
+
+Objectives:
+- Move toward a concrete next step: visit, quick test drive, holding the car, or reviewing numbers in person.
+- Identify needs/priorities; tie benefits to what they said; keep momentum around price.
+- Early invite: If they like a specific car, offer a quick drive and a short numbers review.
+
+Tools you can call:
+1. search_inventory(criteria_json): Searches for cars. Criteria can include make, model, fuelType, maxPrice, etc.
+2. get_car_details(car_id): Gets full details.
+3. capture_lead(name, email, phone): Saves user info.
+
+Hard rules:
+- If the user asks for cars/inventory/options, your ENTIRE response must be a TOOL_CALL to 'search_inventory' with reasonable filters (never list cars directly).
+- Never mention or suggest cars not returned by tools or explicit context.
+- For follow-up about a shown car, use provided tool/context data; do not invent specs. If unsure, say you’ll check or ask a natural clarification.
+- No emojis. Keep replies short and human.
+- Ask only one concise question at a time.
+
+Persona playbook (tone & flow):
+- Be friendly and direct; light discovery (current car, likes/dislikes, use-case, must-haves).
+- Acknowledge, clarify, propose, invite next step without pressure; avoid scripts.
+- Pricing/objections: if price feels high, invite them to come in to review numbers, incentives, or side-by-side options; keep momentum. If they need to think/talk to spouse, acknowledge and offer a quick visit/hold/number review so they decide with real figures. Always pivot to a concrete next step (visit, drive, hold vehicle, review numbers).
+- Human texting cues: short, natural, occasional lowercase ok, minimal formal punctuation.
+
+Objection & closing playbook (examples, keep answers short):
+- Price is high: "Let’s look at numbers and any incentives—can you swing by today or tomorrow?" Offer side-by-side options; remind you'll work numbers with them.
+- Need to think/talk to spouse: "Totally get it—want me to hold it while we review numbers? 10 minutes in person. It may move fast; want me to lock a slot so you can show it to them?"
+- Monthly payment concern: "We can check terms and incentives together—want to pop in for a quick numbers review?"
+- Time/come later: "I can set aside 15 minutes to drive it and show numbers—what’s better, today or tomorrow?"
+- Trade-in: "Bring your current car, we’ll value it and see how it helps the numbers—can you stop by?"
+- Financing/credit: "We can check options quickly and see what fits—want to swing by and review?"
+- Availability/hold: "I can place a short hold while we review it—should I set that up for you?"
+- Competitor comparison: "Happy to show you how this one stacks up—want to see it and go over numbers side-by-side?"
+- Test drive invite early: "Easiest way is to drive it and feel it—want to pop in today or tomorrow?"
+
+Response format:
+- If you need a tool, your ENTIRE response must be valid JSON:
+{"tool": "tool_name", "args": { ... }}
+- Otherwise reply conversationally and humanly.`;
+
+        async function queryHuggingFace(messages) {
+            console.log("🚀 Making API call to Hugging Face...");
+            console.log("📡 Model:", MODEL_ID);
+
+            // Chat-completions endpoint via router (OpenAI-compatible)
+            const apiUrl = "https://router.huggingface.co/v1/chat/completions";
+
+            console.log("📤 Sending request to:", apiUrl);
+
+            const response = await fetch(apiUrl, {
+                headers: {
+                    Authorization: `Bearer ${HF_API_KEY}`,
+                    "Content-Type": "application/json",
+                },
+                method: "POST",
+                body: JSON.stringify({
+                    model: MODEL_ID,
+                    messages: [
+                        { role: "system", content: SYSTEM_PROMPT },
+                        ...messages.map(m => ({
+                            role: m.role === "assistant" ? "assistant" : "user",
+                            content: m.content
+                        }))
+                    ],
+                    max_tokens: 300,
+                    temperature: 0.7,
+                    stream: false
+                }),
+            });
+
+            console.log("📥 Response status:", response.status);
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error("❌ API Error:", response.status, errorData);
+                throw new Error(`API ERROR (${response.status}): ${JSON.stringify(errorData)}`);
+            }
+
+            const result = await response.json();
+            console.log("✅ API Response received:", result);
+
+            if (result.error) {
+                console.error("❌ API returned error:", result.error);
+                throw new Error(`API ERROR: ${result.error}`);
+            }
+
+            // OpenAI-compatible format
+            const responseText = result.choices?.[0]?.message?.content || "";
+
+            console.log("✅ SUCCESS - Response from AI model:", responseText);
+            return responseText.trim();
+        }
+
+        // ==========================================
+        // REACT COMPONENTS
+        // ==========================================
+
+        const { useState, useEffect, useRef } = React;
+
+        // Simple intent detection to ensure we show cars only when explicitly asked
+        function detectInventoryQuery(message) {
+            const text = message.toLowerCase();
+
+            // Require explicit shopping intent to avoid re-attaching cards on casual mentions
+            const hasInventoryIntent = /(inventory|in stock|available|do you have|what do you have|show|list|options|car|cars|stock|looking for)/i.test(text);
+            if (!hasInventoryIntent) return null;
+
+            // Electric / fuel keywords
+            if (text.includes("electric") || text.includes("ev") || text.includes("battery")) {
+                return { fuelType: "Electric" };
+            }
+            if (text.includes("hybrid")) {
+                return { fuelType: "Hybrid" };
+            }
+            if (text.includes("gas") || text.includes("gasoline") || text.includes("mpg") || text.includes("fuel")) {
+                return { fuelType: "Gasoline" };
+            }
+
+            // Brand keywords
+            if (text.includes("bmw")) return { make: "BMW" };
+            if (text.includes("porsche")) return { make: "Porsche" };
+            if (text.includes("mercedes") || text.includes("benz") || text.includes("g-wagon") || text.includes("gwagon")) return { make: "Mercedes-Benz" };
+            if (text.includes("ford") || text.includes("mustang") || text.includes("mach")) return { make: "Ford" };
+            if (text.includes("tesla")) return { make: "Tesla" };
+
+            // Generic inventory asks
+            if (text.includes("cars") || text.includes("inventory") || text.includes("show me") || text.includes("what do you have") || text.includes("list")) {
+                return {};
+            }
+
+            return null;
+        }
+
+        // Lightweight matcher to ground follow-up chat to a specific known car without re-showing cards
+        function findCarFromMessage(message) {
+            const text = message.toLowerCase();
+            // Prefer explicit ID mentions like "#1"
+            const idMatch = text.match(/#?(\d+)/);
+            if (idMatch) {
+                const carById = CARS.find(c => c.id === Number(idMatch[1]));
+                if (carById) return carById;
+            }
+
+            // Check for make/model keywords
+            for (const car of CARS) {
+                const makeHit = text.includes(car.make.toLowerCase());
+                const modelHit = text.includes(car.model.toLowerCase().split(" ")[0]); // first token of model
+                if (makeHit || modelHit) return car;
+            }
+
+            // Mileage hint
+            const mileageMatch = text.match(/(\d{1,3}(?:,\d{3})?)[ ]*mi/);
+            if (mileageMatch) {
+                const miles = Number(mileageMatch[1].replace(/,/g, ""));
+                const carByMiles = CARS.find(c => Math.abs(c.mileage - miles) <= 500); // small tolerance
+                if (carByMiles) return carByMiles;
+            }
+
+            return null;
+        }
+
+        // Strip emojis and limit to two short sentences to keep replies human-text sized
+        function sanitizeResponse(text) {
+            if (!text) return text;
+            let noEmoji = text
+                .replace(/[\u{1F300}-\u{1FAFF}]/gu, "")
+                .replace(/[\u{1F1E6}-\u{1F1FF}]/gu, "");
+
+            const sentences = noEmoji.match(/[^.!?]+[.!?]?/g);
+            if (sentences && sentences.length > 0) {
+                const trimmed = sentences.map(s => s.trim()).filter(Boolean);
+                const limited = trimmed.slice(0, 2).join(" ");
+                return limited || noEmoji.trim();
+            }
+            return noEmoji.trim();
+        }
+
+        function CarCard({ car, onClick }) {
+            const savings = car.originalPrice - car.price;
+
+            return (
+                <div onClick={() => onClick(car)} className="flex-shrink-0 w-72 bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer border border-slate-100 group slide-in">
+                    <div className="relative h-40 overflow-hidden">
+                        <img src={car.image} alt={car.model} className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500" />
+                        {savings > 0 && (
+                            <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md animate-pulse">
+                                Save ${savings.toLocaleString()}!
+                            </div>
+                        )}
+                        <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-black/70 to-transparent p-3">
+                            <h3 className="text-white font-bold text-lg">{car.year} {car.make} {car.model}</h3>
+                        </div>
+                    </div>
+                    <div className="p-4">
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="text-2xl font-bold text-blue-600">${car.price.toLocaleString()}</span>
+                            <span className="text-xs text-slate-500">{car.mileage.toLocaleString()} mi</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1 mb-3">
+                            {car.features.slice(0, 2).map((feat, i) => (
+                                <span key={i} className="text-[10px] bg-slate-100 text-slate-600 px-2 py-1 rounded-full">{feat}</span>
+                            ))}
+                        </div>
+                        <button className="w-full bg-slate-900 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors">
+                            View Details
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        function LeadForm({ isOpen, onClose, carOfInterest }) {
+            if (!isOpen) return null;
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                // Simulation
+                setTimeout(() => onClose(true), 1500);
+            };
+
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative slide-in">
+                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white text-center">
+                            <div className="mx-auto w-8 h-8 opacity-80 mb-2 text-white">
+                                <Sparkles />
+                            </div>
+                            <h2 className="text-2xl font-bold">You're one step away!</h2>
+                            <p className="text-blue-100 text-sm">Lock in this price for the {carOfInterest?.model || "vehicle"}.</p>
+                        </div>
+                        <button onClick={() => onClose(false)} className="absolute top-4 right-4 text-white/80 hover:text-white">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+
+                        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
+                                <input type="text" required className="w-full p-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all" placeholder="John Doe" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Phone Number</label>
+                                <input type="tel" required className="w-full p-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all" placeholder="(555) 123-4567" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                                <input type="email" required className="w-full p-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all" placeholder="john@example.com" />
+                            </div>
+                            <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg hover:shadow-blue-500/30 transform hover:-translate-y-0.5 transition-all">
+                                Schedule Test Drive
+                            </button>
+                            <p className="text-xs text-center text-slate-400 mt-4">We respect your privacy. No spam, ever.</p>
+                        </form>
+                    </div>
+                </div>
+            );
+        }
+
+        function App() {
+            const [input, setInput] = useState("");
+            const [messages, setMessages] = useState([
+                { role: "assistant", content: "Hey there! 🚗 Welcome to AutoAI. I'm Kevin, your personal car expert. Looking for anything specific today, or just browsing our new arrivals?" }
+            ]);
+            const [isLoading, setIsLoading] = useState(false);
+            const [activeInventory, setActiveInventory] = useState([]);
+            const [showLeadForm, setShowLeadForm] = useState(false);
+            const [selectedCar, setSelectedCar] = useState(null);
+            // Prevents inventory cards from re-attaching unless the user explicitly asks again
+            const [canShowInventory, setCanShowInventory] = useState(false);
+            const scrollRef = useRef(null);
+
+            useEffect(() => {
+                if (scrollRef.current) {
+                    scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+                }
+            }, [messages, activeInventory]);
+
+            // Handlers
+            const handleLeadSubmit = (success) => {
+                setShowLeadForm(false);
+                if (success) {
+                    addMessage("assistant", "Perfect! 🌟 I've got your info down. One of our senior specialists will reach out shortly to confirm your appointment. Anything else I can show you in the meantime?");
+                }
+            };
+
+            const addMessage = (role, content, cards = null) => {
+                setMessages(prev => [...prev, { role, content, cards }]);
+            };
+
+            const executeTool = (toolName, args) => {
+                console.log("Executing Tool:", toolName, args);
+
+                if (toolName === "search_inventory") {
+                    // Simple filter logic
+                    const results = CARS.filter(car => {
+                        if (args.make && !car.make.toLowerCase().includes(args.make.toLowerCase())) return false;
+                        if (args.fuelType && !car.fuelType.toLowerCase().includes(args.fuelType.toLowerCase())) return false;
+                        if (args.maxPrice && car.price > args.maxPrice) return false;
+                        return true;
+                    });
+
+                    if (results.length > 0) {
+                        return {
+                            result: `Found ${results.length} cars matching criteria.`,
+                            data: results,
+                            display: true
+                        };
+                    } else {
+                        return { result: "No exact matches found, but we have other great options.", data: [], display: false };
+                    }
+                }
+
+                if (toolName === "capture_lead") {
+                    setShowLeadForm(true);
+                    return { result: "Lead form triggered.", data: null, display: false };
+                }
+
+                return { result: "Tool executed.", data: null };
+            };
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                if (!input.trim() || isLoading) return;
+
+                const userMsg = input;
+                setInput("");
+                addMessage("user", userMsg);
+                setIsLoading(true);
+
+                // If user clearly asks for cars/inventory, show results immediately (no AI latency)
+                let inventoryShown = false;
+                const detectedCriteria = detectInventoryQuery(userMsg);
+                const explicitInventoryRequest = detectedCriteria !== null;
+                if (explicitInventoryRequest) {
+                    setCanShowInventory(true); // allow one inventory render for this turn
+                    const toolResult = executeTool("search_inventory", detectedCriteria);
+                    inventoryShown = true;
+                    if (toolResult.display && toolResult.data.length > 0) {
+                        addMessage("assistant", `${toolResult.result}\n\nAsk me about any of these or say “details on #1” to zoom in.`, toolResult.data);
+                        setActiveInventory([]);
+                        setCanShowInventory(false); // lock after showing
+                        setIsLoading(false);
+                        return; // prevent hallucinated lists
+                    } else {
+                        // No matches for the requested criteria; show full inventory instead
+                        const fallback = executeTool("search_inventory", {});
+                        addMessage("assistant", `I don't have that in stock right now. Here's what I do have on the floor today:`, fallback.data);
+                        setActiveInventory([]);
+                        setCanShowInventory(false); // lock after showing
+                        setIsLoading(false);
+                        return;
+                    }
+                }
+
+                // Main Loop
+                try {
+                    // Ground the AI with any inferred car context so it talks humanly and avoids placeholders
+                    const matchedCar = findCarFromMessage(userMsg);
+                    const contextMessages = matchedCar ? [{
+                        role: "user",
+                        content: `[Context] Known car mentioned: ${matchedCar.year} ${matchedCar.make} ${matchedCar.model}, ${matchedCar.mileage.toLocaleString()} mi, $${matchedCar.price.toLocaleString()}, features: ${matchedCar.features.join(", ")}. Avoid placeholders—be conversational.`
+                    }] : [];
+
+                    // 1. Get initial response
+                    let aiResponse = await queryHuggingFace([
+                        ...messages,
+                        ...contextMessages,
+                        { role: "user", content: userMsg }
+                    ]);
+
+                    // 2. Check for Tool Call
+                    try {
+                        // Very basic JSON extraction if the model outputs text before/after JSON
+                        const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+                        if (jsonMatch) {
+                            const toolData = JSON.parse(jsonMatch[0]);
+                            if (toolData.tool) {
+                                // Execute tool
+                                const toolResult = executeTool(toolData.tool, toolData.args);
+
+                                // Show cards if inventory found
+                                const shouldDisplayInventory = explicitInventoryRequest || canShowInventory;
+                                if (toolResult.display && toolResult.data.length > 0 && shouldDisplayInventory) {
+                                    // Show inventory in its own message, once
+                                    addMessage("assistant", toolResult.result, toolResult.data);
+                                    setActiveInventory([]);
+                                    setCanShowInventory(false); // prevent re-attachment until user asks again
+                                }
+
+                                // 3. Send tool result back to AI to get final conversational response
+                                // We simulate this by appending a system message with the result
+                                const toolContextMsg = {
+                                    role: "user", // Simulate system feedback as user for simplicity in this demo structure
+                                    content: `[System Tool Output]: ${toolResult.result}. Now talk to the user about these cars/results naturally.`
+                                };
+
+                                aiResponse = await queryHuggingFace([...messages, { role: "user", content: userMsg }, toolContextMsg]);
+                            }
+                        }
+                    } catch (e) {
+                        console.log("Not a tool call or parse error", e);
+                        // If parse fails, we just use the text as is
+                    }
+
+                    // 4. Clean up response: strip JSON/tool leakage or model tags
+                    aiResponse = aiResponse.replace(/TOOL_CALL:?/gi, "");
+                    const cleanResponse = aiResponse.replace(/\{[\s\S]*\}/, "").trim();
+                    const sanitized = sanitizeResponse(cleanResponse);
+                    if (sanitized) {
+                        addMessage("assistant", sanitized, null);
+                    }
+
+                } catch (error) {
+                    console.error("❌ FULL ERROR:", error);
+                    addMessage("assistant", `🚨 API ERROR: ${error.message}\n\nCheck browser console (F12) for details.`);
+                }
+
+                setIsLoading(false);
+            };
+
+            return (
+                <div className="flex h-screen max-w-7xl mx-auto bg-white/50 backdrop-blur-xl shadow-2xl overflow-hidden relative">
+                    <LeadForm isOpen={showLeadForm} onClose={handleLeadSubmit} carOfInterest={selectedCar} />
+
+                    {/* Left Sidebar - Branding & Info */}
+                    <div className="hidden md:flex w-80 bg-slate-900 flex-col p-6 text-white justify-between relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500 rounded-full blur-[100px] opacity-20 transform translate-x-1/2 -translate-y-1/2"></div>
+
+                        <div className="relative z-10">
+                            <div className="flex items-center gap-2 mb-8">
+                                <div className="bg-blue-600 p-2 rounded-lg">
+                                    <Zap />
+                                </div>
+                                <h1 className="text-2xl font-bold tracking-tight">AutoAI</h1>
+                            </div>
+
+                            <div className="space-y-6">
+                                <div className="glass bg-white/5 p-4 rounded-xl border-white/10">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                                        <p className="text-sm font-medium text-slate-300">Live Agent Active</p>
+                                    </div>
+                                    <p className="text-xs text-slate-400 leading-relaxed">
+                                        I can help you find cars, compare specs, and schedule test drives instantly.
+                                    </p>
+                                </div>
+
+                                <div className="space-y-4">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="text-xs text-slate-500 text-center relative z-10">
+                            <div className="text-xs text-slate-500 text-center relative z-10">
+
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Main Chat Area */}
+                    <div className="flex-1 flex flex-col bg-white/80">
+                        {/* Header Mobile */}
+                        <div className="md:hidden p-4 bg-slate-900 text-white flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Zap className="w-5 h-5 text-blue-500" />
+                                <span className="font-bold">AutoAI</span>
+                            </div>
+                        </div>
+
+                        {/* Messages List */}
+                        <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6" ref={scrollRef}>
+                            {messages.map((msg, idx) => (
+                                <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} slide-in`} style={{ animationDelay: `${idx * 0.1}s` }}>
+
+                                    {/* Bubble */}
+                                    <div className={`max-w-[85%] md:max-w-[70%] p-4 rounded-2xl shadow-sm text-sm md:text-base leading-relaxed whitespace-pre-wrap ${msg.role === 'user'
+                                        ? 'bg-blue-600 text-white rounded-br-none'
+                                        : 'bg-white border border-slate-100 text-slate-700 rounded-bl-none'
+                                        }`}>
+                                        {msg.content}
+                                    </div>
+
+                                    {/* Inventory Cards (if any attached to this message) */}
+                                    {msg.cards && msg.cards.length > 0 && (
+                                        <div className="flex gap-4 overflow-x-auto w-full py-4 px-2 snap-x">
+                                            {msg.cards.map(car => (
+                                                <CarCard key={car.id} car={car} onClick={setSelectedCar} />
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+
+                            {isLoading && (
+                                <div className="flex items-start slide-in">
+                                    <div className="bg-white border border-slate-100 p-4 rounded-2xl rounded-bl-none shadow-sm flex items-center gap-1">
+                                        <div className="w-2 h-2 bg-blue-500 rounded-full typing-dot"></div>
+                                        <div className="w-2 h-2 bg-blue-500 rounded-full typing-dot"></div>
+                                        <div className="w-2 h-2 bg-blue-500 rounded-full typing-dot"></div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Input Area */}
+                        <div className="p-4 md:p-6 bg-white border-t border-slate-100">
+                            <form onSubmit={handleSubmit} className="relative max-w-4xl mx-auto flex items-center gap-4">
+                                <div className="flex-1 relative">
+                                    <input
+                                        type="text"
+                                        value={input}
+                                        onChange={(e) => setInput(e.target.value)}
+                                        placeholder="Ask about electric cars, SUVs, or specific models..."
+                                        className="w-full pl-6 pr-12 py-4 bg-slate-50 border-none rounded-full focus:ring-2 focus:ring-blue-100 focus:bg-white transition-all shadow-inner text-slate-700 placeholder-slate-400 outline-none"
+                                    />
+                                    <button
+                                        type="button"
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400"
+                                    >
+                                        <Sparkles />
+                                    </button>
+                                </div>
+                                <button
+                                    type="submit"
+                                    disabled={isLoading || !input.trim()}
+                                    className="p-4 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-200 transition-all hover:scale-105 active:scale-95"
+                                >
+                                    <Send />
+                                </button>
+                            </form>
+                            <p className="text-center text-xs text-slate-400 mt-3">
+                                Start by asking: "Do you have any electric SUVs?" or "Looking for a fast BMW"
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+
+</html>
