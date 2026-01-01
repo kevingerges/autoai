@@ -5,7 +5,7 @@ import { queryHuggingFace } from '@/api/chat';
 import { CarCard } from '@/components/chat/CarCard';
 import { LeadForm } from '@/components/chat/LeadForm';
 import { ChatMessage } from '@/components/chat/ChatMessage';
-import { getMessages, saveMessage, getChatSessions } from '@/lib/supabase';
+import { getMessages, saveMessage, getChatSessions, searchCars, getCarById, Car } from '@/lib/supabase';
 
 export default function Demo() {
     const [input, setInput] = useState("");
@@ -21,7 +21,8 @@ export default function Demo() {
 
     const initialGreeting = { role: "assistant", content: "Hey there! 🚗 Welcome to AutoAI. I'm Kevin, your personal car expert. Looking for anything specific today, or just browsing our new arrivals?" };
 
-    const [messages, setMessages] = useState([initialGreeting]);
+    // Start with empty messages - will be populated from history or initial greeting
+    const [messages, setMessages] = useState<any[]>([]);
 
     // Start a new chat session
     const startNewChat = async () => {
@@ -85,7 +86,8 @@ export default function Demo() {
             if (history && history.length > 0) {
                 setMessages(history);
             } else {
-                // Persist the initial greeting for new sessions
+                // No history - show and persist the initial greeting
+                setMessages([initialGreeting]);
                 saveMessage(sessionId, initialGreeting.role, initialGreeting.content, null);
             }
         }
@@ -112,12 +114,32 @@ export default function Demo() {
     // LOGIC: Improved Intent & Context
     // ==========================================
 
-    function detectInventoryQuery(message: string) {
+    // Detect if user is asking to SEE/LIST inventory (show cards)
+    function isExplicitListRequest(message: string) {
         const text = message.toLowerCase();
 
-        // Require explicit shopping intent to avoid re-attaching cards on casual mentions
-        const hasInventoryIntent = /(inventory|in stock|available|do you have|what do you have|show|list|options|car|cars|stock|looking for)/i.test(text);
-        if (!hasInventoryIntent) return null;
+        // These phrases indicate user wants to SEE a list of cars
+        const listPhrases = [
+            "what do you have",
+            "what cars",
+            "what teslas",
+            "what bmws",
+            "show me",
+            "list",
+            "all your",
+            "your inventory",
+            "cars do you have",
+            "vehicles do you have",
+            "what's on the lot",
+            "what you got"
+        ];
+
+        return listPhrases.some(phrase => text.includes(phrase));
+    }
+
+    // Detect inventory filters for search
+    function detectInventoryFilters(message: string) {
+        const text = message.toLowerCase();
 
         // Electric / fuel keywords
         if (text.includes("electric") || text.includes("ev") || text.includes("battery")) {
@@ -126,23 +148,28 @@ export default function Demo() {
         if (text.includes("hybrid")) {
             return { fuelType: "Hybrid" };
         }
-        if (text.includes("gas") || text.includes("gasoline") || text.includes("mpg") || text.includes("fuel")) {
+        if (text.includes("gas") || text.includes("gasoline")) {
             return { fuelType: "Gasoline" };
         }
 
         // Brand keywords
         if (text.includes("bmw")) return { make: "BMW" };
         if (text.includes("porsche")) return { make: "Porsche" };
-        if (text.includes("mercedes") || text.includes("benz") || text.includes("g-wagon") || text.includes("gwagon")) return { make: "Mercedes-Benz" };
+        if (text.includes("mercedes") || text.includes("benz") || text.includes("g-wagon")) return { make: "Mercedes-Benz" };
         if (text.includes("ford") || text.includes("mustang") || text.includes("mach")) return { make: "Ford" };
         if (text.includes("tesla")) return { make: "Tesla" };
+        if (text.includes("audi")) return { make: "Audi" };
+        if (text.includes("rivian")) return { make: "Rivian" };
+        if (text.includes("lucid")) return { make: "Lucid" };
 
-        // Generic inventory asks
-        if (text.includes("cars") || text.includes("inventory") || text.includes("show me") || text.includes("what do you have") || text.includes("list")) {
-            return {};
-        }
+        return {};
+    }
 
-        return null;
+    // Detect if user is objecting to price/cost
+    function detectPriceObjection(message: string) {
+        const text = message.toLowerCase();
+        const keywords = ["price", "expensive", "cost", "budget", "high", "money", "afford", "cheaper", "lower"];
+        return keywords.some(k => text.includes(k));
     }
 
     // Lightweight matcher to ground follow-up chat to a specific known car without re-showing cards
@@ -207,39 +234,130 @@ export default function Demo() {
     };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const executeTool = (toolName: string, args: any) => {
+    const executeTool = async (toolName: string, args: any) => {
         console.log("Executing Tool:", toolName, args);
 
         if (toolName === "search_inventory") {
-            // Simple filter logic
-            const results = CARS.filter(car => {
-                if (args.make && !car.make.toLowerCase().includes(args.make.toLowerCase())) return false;
-                if (args.fuelType && !car.fuelType.toLowerCase().includes(args.fuelType.toLowerCase())) return false;
-                if (args.maxPrice && car.price > args.maxPrice) return false;
-                return true;
+            // Try Supabase first, fallback to local CARS
+            let results: any[] = await searchCars({
+                make: args.make,
+                model: args.model,
+                year: args.year,
+                maxPrice: args.maxPrice,
+                fuelType: args.fuelType,
+                keywords: args.keywords
             });
 
+            // Fallback to local CARS if Supabase returns empty (not connected)
+            if (results.length === 0) {
+                results = CARS.filter(car => {
+                    if (args.make && !car.make.toLowerCase().includes(args.make.toLowerCase())) return false;
+                    if (args.model && !car.model.toLowerCase().includes(args.model.toLowerCase())) return false;
+                    if (args.fuelType && !car.fuelType.toLowerCase().includes(args.fuelType.toLowerCase())) return false;
+                    if (args.maxPrice && car.price > args.maxPrice) return false;
+                    if (args.year && car.year !== args.year) return false;
+                    if (args.keywords) {
+                        const kw = args.keywords.toLowerCase();
+                        const searchable = `${car.make} ${car.model} ${car.color} ${car.features.join(' ')}`.toLowerCase();
+                        if (!searchable.includes(kw)) return false;
+                    }
+                    return true;
+                });
+            }
+
             if (results.length > 0) {
+                // Format results for AI context (normalize field names)
+                const summary = results.map(c =>
+                    `- ID#${c.id}: ${c.year} ${c.make} ${c.model} (${c.color}), ${c.mileage?.toLocaleString()} mi, $${c.price?.toLocaleString()}`
+                ).join('\n');
+
                 return {
-                    result: `Found ${results.length} cars matching criteria.`,
-                    data: results,
+                    result: `Found ${results.length} car(s):\n${summary}`,
+                    data: results.map(c => ({
+                        ...c,
+                        // Normalize Supabase field names to match local format
+                        fuelType: c.fuel_type || c.fuelType,
+                        originalPrice: c.original_price || c.originalPrice
+                    })),
                     display: true
                 };
             } else {
-                return { result: "No exact matches found, but we have other great options.", data: [], display: false };
+                return {
+                    result: "No exact matches found in current inventory.",
+                    data: [],
+                    display: false
+                };
+            }
+        }
+
+        if (toolName === "get_car_details") {
+            // Find car by ID, or by last mentioned context
+            let car: any = null;
+
+            if (args.car_id) {
+                const id = typeof args.car_id === 'string' ? parseInt(args.car_id) : args.car_id;
+                // Try Supabase first
+                car = await getCarById(id);
+                // Fallback to local
+                if (!car) {
+                    car = CARS.find(c => c.id === id);
+                }
+            }
+
+            // If no ID, try to find from args like make/model
+            if (!car && (args.make || args.model)) {
+                const searchResults = await searchCars({ make: args.make, model: args.model });
+                if (searchResults.length > 0) {
+                    car = searchResults[0];
+                } else {
+                    car = CARS.find(c => {
+                        if (args.make && !c.make.toLowerCase().includes(args.make.toLowerCase())) return false;
+                        if (args.model && !c.model.toLowerCase().includes(args.model.toLowerCase())) return false;
+                        return true;
+                    });
+                }
+            }
+
+            // If still no car, try to find from selected car state
+            if (!car && selectedCar) {
+                car = selectedCar;
+            }
+
+            if (car) {
+                // Normalize field names
+                const fuelType = car.fuel_type || car.fuelType;
+                const features = car.features || [];
+
+                const details = `VERIFIED CAR DETAILS:
+- ID: #${car.id}
+- Vehicle: ${car.year} ${car.make} ${car.model}
+- Color: ${car.color}
+- Mileage: ${car.mileage?.toLocaleString()} miles
+- Price: $${car.price?.toLocaleString()}
+- Fuel Type: ${fuelType}
+- Features: ${Array.isArray(features) ? features.join(', ') : features}
+- Status: Available`;
+
+                return {
+                    result: details,
+                    data: { ...car, fuelType, features },
+                    display: false
+                };
+            } else {
+                return {
+                    result: "Could not find that specific vehicle. Ask the user to clarify which car they mean.",
+                    data: null,
+                    display: false
+                };
             }
         }
 
         if (toolName === "capture_lead") {
             setShowLeadForm(true);
-            return { result: "Lead form triggered.", data: null, display: false };
+            return { result: "Lead form triggered - asking user for contact info.", data: null, display: false };
         }
 
-        if (toolName === "get_car_details") {
-            return { result: "Car details retrieved successfully.", data: null, display: false };
-        }
-
-        return { result: "Tool executed.", data: null };
+        return { result: `Unknown tool: ${toolName}`, data: null, display: false };
     };
 
     // Helper for realistic typing delay
@@ -266,34 +384,41 @@ export default function Demo() {
         addMessage("user", userMsg);
         setIsLoading(true);
 
-        // If user clearly asks for cars/inventory, show results immediately (no AI latency)
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        let inventoryShown = false;
-        const detectedCriteria = detectInventoryQuery(userMsg);
-        const explicitInventoryRequest = detectedCriteria !== null;
+        // If user explicitly asks to LIST/SEE inventory, show cards immediately
+        const isListRequest = isExplicitListRequest(userMsg);
 
-        if (explicitInventoryRequest) {
-            setCanShowInventory(true); // allow one inventory render for this turn
-            const toolResult = executeTool("search_inventory", detectedCriteria);
-            inventoryShown = true;
+        if (isListRequest) {
+            setCanShowInventory(true);
+            const filters = detectInventoryFilters(userMsg);
+            const toolResult = await executeTool("search_inventory", filters);
 
-            if (toolResult.display && toolResult.data.length > 0) {
-                // Simulate quick lookup delay
-                setTimeout(() => {
-                    addMessage("assistant", `${toolResult.result}\n\nAsk me about any of these or say “details on #1” to zoom in.`, toolResult.data);
-                    setActiveInventory([]);
-                    setCanShowInventory(false);
-                    setIsLoading(false);
-                }, 1500);
+            if (toolResult.data && toolResult.data.length > 0) {
+                await new Promise(resolve => setTimeout(resolve, 1200));
+
+                // Create conversational summary instead of robotic list
+                const cars = toolResult.data;
+                const modelCounts: Record<string, number> = {};
+                cars.forEach((c: any) => {
+                    const key = `${c.make} ${c.model}`;
+                    modelCounts[key] = (modelCounts[key] || 0) + 1;
+                });
+
+                const summaryParts = Object.entries(modelCounts).map(([model, count]) =>
+                    count > 1 ? `${count} ${model}s` : `a ${model}`
+                );
+                const summary = summaryParts.length > 2
+                    ? `${summaryParts.slice(0, -1).join(', ')} and ${summaryParts.slice(-1)}`
+                    : summaryParts.join(' and ');
+
+                addMessage("assistant", `we've got ${summary} on the lot right now.\nhere's a quick look at each — let me know which one catches your eye!`, toolResult.data);
+                setActiveInventory([]);
+                setCanShowInventory(false);
+                setIsLoading(false);
                 return;
             } else {
-                setTimeout(() => {
-                    const fallback = executeTool("search_inventory", {});
-                    addMessage("assistant", `I don't have that in stock right now. Here's what I do have on the floor today:`, fallback.data);
-                    setActiveInventory([]);
-                    setCanShowInventory(false);
-                    setIsLoading(false);
-                }, 1500);
+                await new Promise(resolve => setTimeout(resolve, 1200));
+                addMessage("assistant", "hmm, don't have anything like that in stock right now.\nwant me to check for something similar?");
+                setIsLoading(false);
                 return;
             }
         }
@@ -306,48 +431,152 @@ export default function Demo() {
                 content: `[Context] Known car mentioned: ${matchedCar.year} ${matchedCar.make} ${matchedCar.model}, ${matchedCar.mileage.toLocaleString()} mi, $${matchedCar.price.toLocaleString()}, features: ${matchedCar.features.join(", ")}. Avoid placeholders—be conversational.`
             }] : [];
 
+            // Detect greeting and pre-fetch inventory for context
+            const isGreeting = /^(hey|hi|hello|what'?s? ?up|yo|howdy|greetings?)\b/i.test(userMsg.trim());
+            let greetingInventoryContext: any[] = [];
+            if (isGreeting) {
+                const inventoryResult = await executeTool("search_inventory", {});
+                if (inventoryResult.data && inventoryResult.data.length > 0) {
+                    greetingInventoryContext = [{
+                        role: "user",
+                        content: `[CURRENT INVENTORY FOR GREETING]: ${inventoryResult.result}\n\nIMPORTANT: You MUST mention 1-2 specific cars from above in your greeting. Do NOT give a generic greeting like "nice to meet you".`
+                    }];
+                }
+            }
+
             let aiResponse: any = await queryHuggingFace([
                 ...messages,
                 ...contextMessages,
+                ...greetingInventoryContext,
                 { role: "user", content: userMsg }
             ]);
 
-            // Check for Tool Call
-            try {
-                const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
-                if (jsonMatch) {
+            // Tool Call Loop - can iterate if AI needs multiple tools
+            let toolIterations = 0;
+            const maxToolIterations = 3;
+            let lastCarFound: any = matchedCar;
+            let toolWasExecuted = false;
+            let lastToolResult: any = null;
+            let lastToolName = "";
+
+            while (toolIterations < maxToolIterations) {
+                toolIterations++;
+
+                try {
+                    const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+                    if (!jsonMatch) break; // No tool call, exit loop
+
                     const toolData = JSON.parse(jsonMatch[0]);
-                    if (toolData.tool) {
-                        const toolResult = executeTool(toolData.tool, toolData.args);
+                    if (!toolData.tool) break; // Not a valid tool call
 
-                        // Handle inventory display if needed
-                        const shouldDisplayInventory = explicitInventoryRequest || canShowInventory;
-                        if (toolResult.display && toolResult.data.length > 0 && shouldDisplayInventory) {
-                            addMessage("assistant", toolResult.result, toolResult.data);
-                            setActiveInventory([]);
-                            setCanShowInventory(false);
+                    console.log(`Tool iteration ${toolIterations}:`, toolData);
+                    toolWasExecuted = true;
+                    lastToolName = toolData.tool;
+
+                    // Execute the tool
+                    const toolResult = await executeTool(toolData.tool, toolData.args);
+                    lastToolResult = toolResult;
+
+                    // Store last car found for context
+                    if (toolResult.data) {
+                        if (Array.isArray(toolResult.data) && toolResult.data.length > 0) {
+                            lastCarFound = toolResult.data[0]; // Store first match for context
+                        } else if (!Array.isArray(toolResult.data)) {
+                            lastCarFound = toolResult.data;
                         }
-
-                        // Send tool result back to AI
-                        const toolContextMsg = {
-                            role: "user",
-                            content: `[System Tool Output]: ${toolResult.result}. Now talk to the user about these cars/results naturally.`
-                        };
-                        aiResponse = await queryHuggingFace([...messages, { role: "user", content: userMsg }, toolContextMsg]);
                     }
+
+                    // Handle inventory display - only show cards if it was an explicit list request
+                    // For specific car queries, let the AI handle conversationally (no auto-cards)
+                    const shouldDisplayInventory = isListRequest && canShowInventory;
+                    if (toolData.tool === "search_inventory" && toolResult.display && toolResult.data.length > 0 && shouldDisplayInventory) {
+                        // This path is typically handled above, but keep for safety
+                        setActiveInventory([]);
+                        setCanShowInventory(false);
+                    }
+
+                    // Build tool context message based on tool type
+                    let toolContextContent = "";
+                    if (toolData.tool === "search_inventory") {
+                        toolContextContent = `[TOOL RESULT - search_inventory]: ${toolResult.result}
+
+IMPORTANT: Based on these results, you MUST now give the user a helpful response about these cars. Be specific. Push toward a visit.`;
+                    } else if (toolData.tool === "get_car_details") {
+                        toolContextContent = `[TOOL RESULT - get_car_details]: ${toolResult.result}
+
+IMPORTANT: You now have VERIFIED car details. You MUST respond with specific info from above (color, price, mileage). Then ask if they want to come see it.`;
+                    } else {
+                        toolContextContent = `[TOOL RESULT - ${toolData.tool}]: ${toolResult.result}`;
+                    }
+
+                    // Add last found car context if we have one
+                    const carContext = lastCarFound ? `\n[ACTIVE CAR]: ${lastCarFound.year} ${lastCarFound.make} ${lastCarFound.model} (${lastCarFound.color}), ${lastCarFound.mileage?.toLocaleString()} mi, $${lastCarFound.price?.toLocaleString()}` : "";
+
+                    const toolContextMsg = {
+                        role: "user",
+                        content: toolContextContent + carContext
+                    };
+
+                    // Get next AI response with tool results
+                    aiResponse = await queryHuggingFace([
+                        ...messages,
+                        { role: "user", content: userMsg },
+                        { role: "assistant", content: `{"tool":"${toolData.tool}","args":${JSON.stringify(toolData.args)}}` },
+                        toolContextMsg
+                    ]);
+
+                } catch (e) {
+                    console.log("Tool parse error or no tool call:", e);
+                    break;
                 }
-            } catch (e) {
-                console.log("Not a tool call or parse error", e);
             }
 
             // Cleanup & Split Bubbles
             aiResponse = (aiResponse as string).replace(/TOOL_CALL:?/gi, "");
-            const cleanResponse = aiResponse.replace(/\{[\s\S]*\}/, "").trim();
+            let cleanResponse = aiResponse.replace(/\{[\s\S]*\}/, "").trim();
+
+            // If tool was executed but response is weak/empty, generate a helpful fallback
+            if (toolWasExecuted && lastCarFound && cleanResponse.length < 30) {
+                if (lastToolName === "get_car_details") {
+                    cleanResponse = `that's a ${lastCarFound.year} ${lastCarFound.make} ${lastCarFound.model} in ${lastCarFound.color}.\n${lastCarFound.mileage?.toLocaleString()} miles, listed at $${lastCarFound.price?.toLocaleString()}. want to come check it out?`;
+                } else if (lastToolName === "search_inventory" && lastToolResult?.data?.length === 1) {
+                    const car = lastToolResult.data[0];
+                    cleanResponse = `found it — ${car.year} ${car.make} ${car.model} in ${car.color}.\n${car.mileage?.toLocaleString()} mi, $${car.price?.toLocaleString()}. you free to swing by and see it?`;
+                }
+            }
+
             const sanitized = sanitizeResponse(cleanResponse);
 
             if (sanitized) {
                 // SPLIT BUBBLES logic
-                const bubbles = sanitized.split("\n").filter(line => line.trim() !== "");
+                let bubbles = sanitized.split("\n").filter(line => line.trim() !== "");
+
+                // FORCE follow-up CTA: if a car was found but no booking question, add one
+                const hasBookingCTA = bubbles.some(b =>
+                    /come (check|see|by|in)|test drive|swing by|drop by|schedule|appointment|visit|available|free (to|this)/i.test(b)
+                );
+
+                if (lastCarFound && !hasBookingCTA && bubbles.length > 0) {
+                    // Start with generic CTAs
+                    let ctas = [
+                        "want to come check it out today?",
+                        "you free to swing by and see it?",
+                        "want me to hold it for you?",
+                        "when works for a test drive?"
+                    ];
+
+                    // OVERRIDE: If user mentioned price/budget, switch to "come in to negotiate" hard close
+                    if (detectPriceObjection(userMsg)) {
+                        ctas = [
+                            "honestly, the best way to work on the numbers is to come in. we can usually make it happen. you free today?",
+                            "why don't you swing by? we can run your credit and typically make the numbers work in person.",
+                            "if you can come in, my manager can usually find a way to make the budget work. want to try that?",
+                            "listing price is just a starting point. come in and talk to us, we'll see what we can do."
+                        ];
+                    }
+
+                    bubbles.push(ctas[Math.floor(Math.random() * ctas.length)]);
+                }
 
                 // Deliver bubbles sequentially with delay
                 for (const bubble of bubbles) {
@@ -402,8 +631,8 @@ export default function Demo() {
                                     key={session.session_id}
                                     onClick={() => loadSession(session.session_id)}
                                     className={`w-full text-left p-3 rounded-lg transition-all ${session.session_id === sessionId
-                                            ? 'bg-primary/10 border border-primary/20'
-                                            : 'bg-white hover:bg-gray-100 border border-border'
+                                        ? 'bg-primary/10 border border-primary/20'
+                                        : 'bg-white hover:bg-gray-100 border border-border'
                                         }`}
                                 >
                                     <p className="text-sm font-medium text-foreground truncate">

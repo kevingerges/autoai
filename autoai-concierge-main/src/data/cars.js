@@ -1,4 +1,5 @@
 export const CARS = [
+    // Teslas
     {
         id: 1,
         make: 'Tesla',
@@ -14,6 +15,46 @@ export const CARS = [
     },
     {
         id: 2,
+        make: 'Tesla',
+        model: 'Model 3',
+        year: 2023,
+        price: 39990,
+        originalPrice: 42990,
+        mileage: 12000,
+        color: 'Midnight Silver',
+        features: ['Autopilot', 'Standard Audio', 'Glass Roof', 'Heated Seats'],
+        fuelType: 'Electric',
+        image: 'https://images.unsplash.com/photo-1536700503339-1e4b06520771?w=500&q=80'
+    },
+    {
+        id: 3,
+        make: 'Tesla',
+        model: 'Model Y',
+        year: 2024,
+        price: 52990,
+        originalPrice: 54990,
+        mileage: 800,
+        color: 'Red Multi-Coat',
+        features: ['Full Self-Driving', 'Premium Audio', 'Glass Roof', 'Third Row Seating'],
+        fuelType: 'Electric',
+        image: 'https://images.unsplash.com/photo-1619317881193-9e8e49bc4e6e?w=500&q=80'
+    },
+    {
+        id: 4,
+        make: 'Tesla',
+        model: 'Model S',
+        year: 2022,
+        price: 79990,
+        originalPrice: 89990,
+        mileage: 18000,
+        color: 'Deep Blue Metallic',
+        features: ['Ludicrous Mode', 'Premium Audio', 'Yoke Steering', 'Glass Roof'],
+        fuelType: 'Electric',
+        image: 'https://images.unsplash.com/photo-1617788138017-80ad40651399?w=500&q=80'
+    },
+    // Porsche
+    {
+        id: 5,
         make: 'Porsche',
         model: 'Taycan',
         year: 2022,
@@ -26,7 +67,21 @@ export const CARS = [
         image: 'https://images.unsplash.com/photo-1614200187524-dc411390537d?w=500&q=80'
     },
     {
-        id: 3,
+        id: 6,
+        make: 'Porsche',
+        model: '911 Carrera',
+        year: 2023,
+        price: 129900,
+        originalPrice: 135000,
+        mileage: 3500,
+        color: 'GT Silver',
+        features: ['Sport Exhaust', 'PASM', 'Sport Seats', 'Bose Surround'],
+        fuelType: 'Gasoline',
+        image: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=500&q=80'
+    },
+    // BMW
+    {
+        id: 7,
         make: 'BMW',
         model: 'M4 Competition',
         year: 2024,
@@ -39,7 +94,74 @@ export const CARS = [
         image: 'https://images.unsplash.com/photo-1617531653332-bd46c24f2068?w=500&q=80'
     },
     {
-        id: 4,
+        id: 8,
+        make: 'BMW',
+        model: 'iX M60',
+        year: 2023,
+        price: 108900,
+        originalPrice: 112000,
+        mileage: 6500,
+        color: 'Black Sapphire',
+        features: ['M Sport Package', 'Driving Assistant Pro', 'Sky Lounge Roof', 'Bowers & Wilkins'],
+        fuelType: 'Electric',
+        image: 'https://images.unsplash.com/photo-1555215695-3004980ad54e?w=500&q=80'
+    },
+    {
+        id: 9,
+        make: 'BMW',
+        model: 'M3',
+        year: 2023,
+        price: 72500,
+        originalPrice: 76000,
+        mileage: 8200,
+        color: 'Brooklyn Grey',
+        features: ['M Differential', 'Carbon Fiber Trim', 'Harman Kardon', 'M Sport Seats'],
+        fuelType: 'Gasoline',
+        image: 'https://images.unsplash.com/photo-1556189250-72ba954cfc2b?w=500&q=80'
+    },
+    // Mercedes
+    {
+        id: 10,
+        make: 'Mercedes-Benz',
+        model: 'G-Wagon',
+        year: 2021,
+        price: 145000,
+        originalPrice: 160000,
+        mileage: 25000,
+        color: 'Matte Black',
+        features: ['Night Package', 'Massage Seats', 'Burmester Audio', 'V8 Biturbo'],
+        fuelType: 'Gasoline',
+        image: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=500&q=80'
+    },
+    {
+        id: 11,
+        make: 'Mercedes-Benz',
+        model: 'EQS 580',
+        year: 2023,
+        price: 125000,
+        originalPrice: 130000,
+        mileage: 4200,
+        color: 'Obsidian Black',
+        features: ['Hyperscreen', 'Air Balance', 'Rear Axle Steering', 'MBUX'],
+        fuelType: 'Electric',
+        image: 'https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=500&q=80'
+    },
+    {
+        id: 12,
+        make: 'Mercedes-Benz',
+        model: 'AMG GT',
+        year: 2022,
+        price: 159000,
+        originalPrice: 165000,
+        mileage: 9800,
+        color: 'Solarbeam Yellow',
+        features: ['AMG Performance Exhaust', 'Carbon Ceramic Brakes', 'Nappa Leather', 'Track Pace App'],
+        fuelType: 'Gasoline',
+        image: 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=500&q=80'
+    },
+    // Ford
+    {
+        id: 13,
         make: 'Ford',
         model: 'Mustang Mach-E',
         year: 2023,
@@ -52,16 +174,98 @@ export const CARS = [
         image: 'https://images.unsplash.com/photo-1617788138017-80ad40651399?w=500&q=80'
     },
     {
-        id: 5,
-        make: 'Mercedes-Benz',
-        model: 'G-Wagon',
-        year: 2021,
-        price: 145000,
-        originalPrice: 160000,
-        mileage: 25000,
-        color: 'Matte Black',
-        features: ['Night Package', 'Massage Seats', 'Burmester Audio', 'V8 Biturbo'],
+        id: 14,
+        make: 'Ford',
+        model: 'F-150 Lightning',
+        year: 2024,
+        price: 68500,
+        originalPrice: 72000,
+        mileage: 2100,
+        color: 'Iconic Silver',
+        features: ['Extended Range Battery', 'Pro Power Onboard', 'BlueCruise', 'Tow Package'],
+        fuelType: 'Electric',
+        image: 'https://images.unsplash.com/photo-1590362891991-f776e747a588?w=500&q=80'
+    },
+    // Audi
+    {
+        id: 15,
+        make: 'Audi',
+        model: 'e-tron GT',
+        year: 2023,
+        price: 104900,
+        originalPrice: 110000,
+        mileage: 7500,
+        color: 'Mythos Black',
+        features: ['Quattro AWD', 'Matrix LED', 'Bang & Olufsen', 'Air Suspension'],
+        fuelType: 'Electric',
+        image: 'https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?w=500&q=80'
+    },
+    {
+        id: 16,
+        make: 'Audi',
+        model: 'RS7',
+        year: 2022,
+        price: 118500,
+        originalPrice: 125000,
+        mileage: 15000,
+        color: 'Nardo Grey',
+        features: ['Sport Differential', 'Carbon Optic Package', 'Dynamic Ride', 'Laser Lights'],
         fuelType: 'Gasoline',
-        image: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=500&q=80'
+        image: 'https://images.unsplash.com/photo-1603584173870-7f23fdae1b7a?w=500&q=80'
+    },
+    // Rivian
+    {
+        id: 17,
+        make: 'Rivian',
+        model: 'R1T',
+        year: 2023,
+        price: 75000,
+        originalPrice: 79500,
+        mileage: 3200,
+        color: 'Forest Green',
+        features: ['Adventure Package', 'Camp Kitchen', 'Quad Motor', 'Off-Road Upgrade'],
+        fuelType: 'Electric',
+        image: 'https://images.unsplash.com/photo-1619767886558-efdc259cde1a?w=500&q=80'
+    },
+    {
+        id: 18,
+        make: 'Rivian',
+        model: 'R1S',
+        year: 2024,
+        price: 82000,
+        originalPrice: 84000,
+        mileage: 1800,
+        color: 'Limestone',
+        features: ['Launch Edition', 'Max Pack Battery', 'Adventure Package', '7-Seat'],
+        fuelType: 'Electric',
+        image: 'https://images.unsplash.com/photo-1619767886558-efdc259cde1a?w=500&q=80'
+    },
+    // Lucid
+    {
+        id: 19,
+        make: 'Lucid',
+        model: 'Air Grand Touring',
+        year: 2023,
+        price: 138000,
+        originalPrice: 145000,
+        mileage: 5500,
+        color: 'Zenith Red',
+        features: ['Dream Drive Pro', 'Glass Canopy Roof', 'Surreal Sound', '516-Mile Range'],
+        fuelType: 'Electric',
+        image: 'https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=500&q=80'
+    },
+    // Range Rover
+    {
+        id: 20,
+        make: 'Land Rover',
+        model: 'Range Rover Sport',
+        year: 2024,
+        price: 95000,
+        originalPrice: 98500,
+        mileage: 1200,
+        color: 'Carpathian Grey',
+        features: ['Dynamic Response Pro', 'Meridian Signature', 'Pixel LED', 'Wade Sensing'],
+        fuelType: 'Hybrid',
+        image: 'https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?w=500&q=80'
     }
 ];

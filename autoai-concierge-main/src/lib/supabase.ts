@@ -86,3 +86,107 @@ export async function getChatSessions() {
     );
 }
 
+// ============================================
+// CAR INVENTORY FUNCTIONS
+// ============================================
+
+export interface Car {
+    id: number;
+    make: string;
+    model: string;
+    year: number;
+    price: number;
+    original_price: number;
+    mileage: number;
+    color: string;
+    features: string[];
+    fuel_type: string;
+    image: string;
+    status: string;
+}
+
+// Get all available cars
+export async function getCars(): Promise<Car[]> {
+    if (!supabase) return [];
+
+    const { data, error } = await supabase
+        .from('cars')
+        .select('*')
+        .eq('status', 'available')
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('Error fetching cars:', error);
+        return [];
+    }
+    return data || [];
+}
+
+// Search cars with filters
+export async function searchCars(filters: {
+    make?: string;
+    model?: string;
+    year?: number;
+    maxPrice?: number;
+    fuelType?: string;
+    keywords?: string;
+}): Promise<Car[]> {
+    if (!supabase) return [];
+
+    let query = supabase
+        .from('cars')
+        .select('*')
+        .eq('status', 'available');
+
+    if (filters.make) {
+        query = query.ilike('make', `%${filters.make}%`);
+    }
+    if (filters.model) {
+        query = query.ilike('model', `%${filters.model}%`);
+    }
+    if (filters.year) {
+        query = query.eq('year', filters.year);
+    }
+    if (filters.maxPrice) {
+        query = query.lte('price', filters.maxPrice);
+    }
+    if (filters.fuelType) {
+        query = query.ilike('fuel_type', `%${filters.fuelType}%`);
+    }
+
+    const { data, error } = await query.order('price', { ascending: true });
+
+    if (error) {
+        console.error('Error searching cars:', error);
+        return [];
+    }
+
+    // Additional keyword filtering on features/color (client-side)
+    let results = data || [];
+    if (filters.keywords) {
+        const kw = filters.keywords.toLowerCase();
+        results = results.filter(car => {
+            const searchable = `${car.make} ${car.model} ${car.color} ${car.features?.join(' ') || ''}`.toLowerCase();
+            return searchable.includes(kw);
+        });
+    }
+
+    return results;
+}
+
+// Get single car by ID
+export async function getCarById(id: number): Promise<Car | null> {
+    if (!supabase) return null;
+
+    const { data, error } = await supabase
+        .from('cars')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+    if (error) {
+        console.error('Error fetching car:', error);
+        return null;
+    }
+    return data;
+}

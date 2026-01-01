@@ -54,7 +54,7 @@ export const FinalCTA = () => {
             transition={{ duration: 0.8, delay: 0.2 }}
             className="text-h2 md:text-h1 font-medium text-background tracking-tight mb-5"
           >
-            Ready to 20× Your Sales Capacity?
+            AutoAi
           </motion.h2>
 
           {/* Subheadline */}
