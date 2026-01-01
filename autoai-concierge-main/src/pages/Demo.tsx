@@ -284,28 +284,29 @@ export default function Demo() {
     };
 
     return (
-        <div className="flex h-screen max-w-7xl mx-auto bg-white backdrop-blur-xl shadow-2xl overflow-hidden relative">
+        <div className="flex h-screen w-full bg-background overflow-hidden relative">
             <LeadForm isOpen={showLeadForm} onClose={handleLeadSubmit} carOfInterest={selectedCar} />
 
             {/* Left Sidebar - Branding & Info */}
-            <div className="hidden md:flex w-80 bg-slate-900 flex-col p-6 text-white justify-between relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500 rounded-full blur-[100px] opacity-20 transform translate-x-1/2 -translate-y-1/2"></div>
+            <div className="hidden md:flex w-80 bg-gray-50/50 backdrop-blur-xl flex-col p-6 border-r border-border justify-between relative overflow-hidden">
+                {/* Background Gradient to match Landing Page */}
+                <div className="absolute inset-0 bg-gradient-radial from-background via-background to-gray-50 opacity-60 pointer-events-none" />
 
                 <div className="relative z-10">
-                    <div className="flex items-center gap-2 mb-8">
-                        <div className="bg-blue-600 p-2 rounded-lg">
-                            <Zap className="text-white" size={24} />
+                    <div className="flex items-center gap-3 mb-8">
+                        <div className="bg-gray-100 p-2.5 rounded-xl">
+                            <Zap className="text-foreground fill-foreground" size={24} />
                         </div>
-                        <h1 className="text-2xl font-bold tracking-tight">AutoAI</h1>
+                        <h1 className="text-2xl font-bold tracking-tight text-foreground">AutoAI</h1>
                     </div>
 
                     <div className="space-y-6">
-                        <div className="glass bg-white/5 p-4 rounded-xl border-white/10">
+                        <div className="bg-white p-4 rounded-xl border border-border shadow-sm">
                             <div className="flex items-center gap-3 mb-2">
-                                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                                <p className="text-sm font-medium text-slate-300">Live Agent Active</p>
+                                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                <p className="text-sm font-medium text-foreground">Live Agent Active</p>
                             </div>
-                            <p className="text-xs text-slate-400 leading-relaxed">
+                            <p className="text-xs text-muted-foreground leading-relaxed">
                                 I can help you find cars, compare specs, and schedule test drives instantly.
                             </p>
                         </div>
@@ -314,17 +315,23 @@ export default function Demo() {
             </div>
 
             {/* Main Chat Area */}
-            <div className="flex-1 flex flex-col bg-white/80">
+            <div className="flex-1 flex flex-col bg-background relative">
+                {/* Background Gradient & Pattern from Hero.tsx */}
+                <div className="absolute inset-0 bg-gradient-radial from-background via-background to-gray-50 opacity-60 pointer-events-none" />
+                <div className="absolute inset-0 grid-pattern opacity-[0.03] z-0 pointer-events-none"></div>
+
                 {/* Header Mobile */}
-                <div className="md:hidden p-4 bg-slate-900 text-white flex items-center justify-between">
+                <div className="md:hidden p-4 bg-background/80 backdrop-blur-md flex items-center justify-between relative z-10 border-b border-border/50">
                     <div className="flex items-center gap-2">
-                        <Zap className="w-5 h-5 text-blue-500" />
-                        <span className="font-bold">AutoAI</span>
+                        <div className="bg-gray-100 p-1.5 rounded-lg">
+                            <Zap className="text-foreground fill-foreground" size={18} />
+                        </div>
+                        <span className="font-bold text-lg text-foreground">AutoAI</span>
                     </div>
                 </div>
 
                 {/* Messages List */}
-                <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6" ref={scrollRef}>
+                <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 relative z-10" ref={scrollRef}>
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     {messages.map((msg: any, idx: number) => (
                         <ChatMessage key={idx} message={msg} idx={idx} onCarClick={setSelectedCar} />
@@ -332,42 +339,42 @@ export default function Demo() {
 
                     {isLoading && (
                         <div className="flex items-start slide-in">
-                            <div className="bg-white border border-slate-100 p-3 rounded-2xl rounded-bl-none shadow-sm flex items-center gap-1">
-                                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                            <div className="bg-card border border-border p-3 rounded-2xl rounded-bl-none shadow-sm flex items-center gap-1">
+                                <div className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                                <div className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                                <div className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                             </div>
                         </div>
                     )}
                 </div>
 
                 {/* Input Area */}
-                <div className="p-4 md:p-6 bg-white border-t border-slate-100">
-                    <form onSubmit={handleSubmit} className="relative max-w-4xl mx-auto flex items-center gap-4">
+                <div className="p-4 bg-background/80 backdrop-blur-md border-t border-border relative z-10">
+                    <form onSubmit={handleSubmit} className="relative max-w-4xl mx-auto flex items-center gap-3">
                         <div className="flex-1 relative">
                             <input
                                 type="text"
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
                                 placeholder="Ask about electric cars, SUVs, or specific models..."
-                                className="w-full pl-6 pr-12 py-4 bg-slate-50 border-none rounded-full focus:ring-2 focus:ring-blue-100 focus:bg-white transition-all shadow-inner text-slate-700 placeholder-slate-400 outline-none"
+                                className="w-full pl-5 pr-12 py-3.5 bg-gray-50/50 border border-gray-100 focus:border-gray-200 rounded-2xl focus:ring-4 focus:ring-gray-100 transition-all text-foreground placeholder-muted-foreground outline-none shadow-sm text-base"
                             />
                             <button
                                 type="button"
-                                className="absolute right-3 top-1/2 -translate-y-1/2 p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400"
+                                className="absolute right-3 top-1/2 -translate-y-1/2 p-2 hover:bg-gray-100 rounded-full transition-colors text-muted-foreground"
                             >
-                                <Sparkles size={20} />
+                                <Sparkles size={18} />
                             </button>
                         </div>
                         <button
                             type="submit"
                             disabled={isLoading || !input.trim()}
-                            className="p-4 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-200 transition-all hover:scale-105 active:scale-95"
+                            className="p-3.5 bg-primary text-primary-foreground rounded-2xl hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-gray-200 transition-all hover:scale-105 active:scale-95"
                         >
                             <Send size={20} />
                         </button>
                     </form>
-                    <p className="text-center text-xs text-slate-400 mt-3">
+                    <p className="text-center text-[11px] text-muted-foreground mt-2 font-medium">
                         Start by asking: "Do you have any electric SUVs?" or "Looking for a fast BMW"
                     </p>
                 </div>

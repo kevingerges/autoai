@@ -10,8 +10,8 @@ export function ChatMessage({ message, idx, onCarClick }) {
                     <div
                         key={i}
                         className={`max-w-[85%] md:max-w-[70%] p-4 rounded-2xl shadow-sm text-sm md:text-base leading-relaxed animate-fade-in-up ${message.role === 'user'
-                            ? 'bg-blue-600 text-white rounded-br-none self-end'
-                            : 'bg-white border border-slate-100 text-slate-700 rounded-bl-none self-start'
+                            ? 'bg-accent text-accent-foreground rounded-br-none self-end'
+                            : 'bg-card border border-border text-foreground rounded-bl-none self-start'
                             }`}
                     >
                         {line}
