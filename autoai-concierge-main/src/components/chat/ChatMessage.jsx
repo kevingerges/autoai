@@ -1,7 +1,20 @@
 import React from 'react';
 import { CarCard } from './CarCard';
+import { ToolIndicator } from './ToolIndicator';
 
 export function ChatMessage({ message, idx, onCarClick }) {
+    if (message.role === 'tool_log') {
+        return (
+            <div className={`flex flex-col items-start slide-in`} style={{ animationDelay: `${idx * 0.1}s` }}>
+                <ToolIndicator
+                    toolName={message.toolName}
+                    args={message.args}
+                    result={message.result}
+                />
+            </div>
+        );
+    }
+
     return (
         <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'} slide-in`} style={{ animationDelay: `${idx * 0.1}s` }}>
             {/* Bubbles */}

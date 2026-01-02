@@ -19,7 +19,8 @@ export default function Demo() {
         return newId;
     });
 
-    const initialGreeting = { role: "assistant", content: "Hey there! 🚗 Welcome to AutoAI. I'm Kevin, your personal car expert. Looking for anything specific today, or just browsing our new arrivals?" };
+    // Human-like greeting (not bot-like)
+    const initialGreeting = { role: "assistant", content: "hey! welcome in\nwhat are you shopping for?" };
 
     // Start with empty messages - will be populated from history or initial greeting
     const [messages, setMessages] = useState<any[]>([]);
@@ -99,6 +100,10 @@ export default function Demo() {
     const [activeInventory, setActiveInventory] = useState([]);
     const [showLeadForm, setShowLeadForm] = useState(false);
     const [selectedCar, setSelectedCar] = useState(null);
+
+    // Active car tracking for get_car_details (fixes "last_referenced" issue)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [activeCar, setActiveCar] = useState<any>(null);
     const [canShowInventory, setCanShowInventory] = useState(false);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -161,6 +166,14 @@ export default function Demo() {
         if (text.includes("audi")) return { make: "Audi" };
         if (text.includes("rivian")) return { make: "Rivian" };
         if (text.includes("lucid")) return { make: "Lucid" };
+
+        // Model keywords
+        if (text.includes("model 3") || text.includes("model3")) return { make: "Tesla", model: "Model 3" };
+        if (text.includes("model y") || text.includes("modely")) return { make: "Tesla", model: "Model Y" };
+        if (text.includes("model s")) return { make: "Tesla", model: "Model S" };
+        if (text.includes("taycan")) return { make: "Porsche", model: "Taycan" };
+        if (text.includes("911")) return { make: "Porsche", model: "911 Carrera" };
+        if (text.includes("mach-e") || text.includes("mach e")) return { make: "Ford", model: "Mustang Mach-E" };
 
         return {};
     }
@@ -227,9 +240,9 @@ export default function Demo() {
     };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const addMessage = (role: string, content: string, cards: any = null) => {
+    const addMessage = (role: string, content: string, cards: any = null, toolData: any = null) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        setMessages((prev: any[]) => [...prev, { role, content, cards }]);
+        setMessages((prev: any[]) => [...prev, { role, content, cards, ...toolData }]);
         saveMessage(sessionId, role, content, cards);
     };
 
@@ -318,7 +331,12 @@ export default function Demo() {
                 }
             }
 
-            // If still no car, try to find from selected car state
+            // If still no car, try to find from activeCar state (last referenced)
+            if (!car && activeCar) {
+                car = activeCar;
+            }
+
+            // Last resort: try selectedCar
             if (!car && selectedCar) {
                 car = selectedCar;
             }
@@ -431,23 +449,46 @@ export default function Demo() {
                 content: `[Context] Known car mentioned: ${matchedCar.year} ${matchedCar.make} ${matchedCar.model}, ${matchedCar.mileage.toLocaleString()} mi, $${matchedCar.price.toLocaleString()}, features: ${matchedCar.features.join(", ")}. Avoid placeholders—be conversational.`
             }] : [];
 
-            // Detect greeting and pre-fetch inventory for context
-            const isGreeting = /^(hey|hi|hello|what'?s? ?up|yo|howdy|greetings?)\b/i.test(userMsg.trim());
-            let greetingInventoryContext: any[] = [];
-            if (isGreeting) {
-                const inventoryResult = await executeTool("search_inventory", {});
-                if (inventoryResult.data && inventoryResult.data.length > 0) {
-                    greetingInventoryContext = [{
-                        role: "user",
-                        content: `[CURRENT INVENTORY FOR GREETING]: ${inventoryResult.result}\n\nIMPORTANT: You MUST mention 1-2 specific cars from above in your greeting. Do NOT give a generic greeting like "nice to meet you".`
-                    }];
+            // ENFORCED TOOL ROUTING: Force tool call for inventory keywords (don't rely on model)
+            const requiresInventoryLookup = (msg: string) => {
+                const text = msg.toLowerCase();
+                const inventoryKeywords = [
+                    'range', 'mileage', 'miles', 'price', 'how much', 'cost',
+                    'model 3', 'model y', 'model s', 'taycan', '911', 'mach-e',
+                    'tesla', 'bmw', 'porsche', 'mercedes', 'ford', 'audi', 'rivian', 'lucid'
+                ];
+                return inventoryKeywords.some(kw => text.includes(kw));
+            };
+
+            // Force tool call BEFORE model response if inventory keywords detected
+            let forcedToolResult: any = null;
+            if (requiresInventoryLookup(userMsg) && !matchedCar) {
+                const filters = detectInventoryFilters(userMsg);
+                forcedToolResult = await executeTool("search_inventory", filters);
+
+                // Add tool log to chat
+                addMessage("tool_log", "", null, {
+                    toolName: "search_inventory",
+                    args: filters,
+                    result: forcedToolResult.result
+                });
+
+                // Set activeCar if exactly 1 match
+                if (forcedToolResult.data?.length === 1) {
+                    setActiveCar(forcedToolResult.data[0]);
                 }
             }
+
+            // Build messages for AI call with proper tool context
+            const toolContextMessages = forcedToolResult ? [{
+                role: "system" as const,
+                content: `VERIFIED INVENTORY RESULTS:\n${forcedToolResult.result}\n\nYou MUST use these EXACT facts when responding. Do NOT invent any details.`
+            }] : [];
 
             let aiResponse: any = await queryHuggingFace([
                 ...messages,
                 ...contextMessages,
-                ...greetingInventoryContext,
+                ...toolContextMessages,
                 { role: "user", content: userMsg }
             ]);
 
@@ -477,14 +518,14 @@ export default function Demo() {
                     const toolResult = await executeTool(toolData.tool, toolData.args);
                     lastToolResult = toolResult;
 
-                    // Store last car found for context
-                    if (toolResult.data) {
-                        if (Array.isArray(toolResult.data) && toolResult.data.length > 0) {
-                            lastCarFound = toolResult.data[0]; // Store first match for context
-                        } else if (!Array.isArray(toolResult.data)) {
-                            lastCarFound = toolResult.data;
-                        }
-                    }
+                    // Store last car found for context AND update activeCar state\n                    if (toolResult.data) {\n                        if (Array.isArray(toolResult.data) && toolResult.data.length > 0) {\n                            lastCarFound = toolResult.data[0]; // Store first match for context\n                            // If exactly 1 match, set as activeCar for follow-up queries\n                            if (toolResult.data.length === 1) {\n                                setActiveCar(toolResult.data[0]);\n                            }\n                        } else if (!Array.isArray(toolResult.data)) {\n                            lastCarFound = toolResult.data;\n                            setActiveCar(toolResult.data); // Single car from get_car_details\n                        }\n                    }
+
+                    // ADD VISIBLE TOOL LOG TO CHAT
+                    addMessage("tool_log", "", null, {
+                        toolName: toolData.tool,
+                        args: toolData.args,
+                        result: toolResult.result
+                    });
 
                     // Handle inventory display - only show cards if it was an explicit list request
                     // For specific car queries, let the AI handle conversationally (no auto-cards)
@@ -565,13 +606,12 @@ IMPORTANT: You now have VERIFIED car details. You MUST respond with specific inf
                         "when works for a test drive?"
                     ];
 
-                    // OVERRIDE: If user mentioned price/budget, switch to "come in to negotiate" hard close
+                    // If user mentioned price/budget, use negotiation-focused CTAs
                     if (detectPriceObjection(userMsg)) {
                         ctas = [
-                            "honestly, the best way to work on the numbers is to come in. we can usually make it happen. you free today?",
-                            "why don't you swing by? we can run your credit and typically make the numbers work in person.",
-                            "if you can come in, my manager can usually find a way to make the budget work. want to try that?",
-                            "listing price is just a starting point. come in and talk to us, we'll see what we can do."
+                            "come in and we can usually work the numbers. you free today?",
+                            "if you can swing by, my manager can typically make it work. when's good?",
+                            "listing price is just a starting point. want to come in and talk numbers?"
                         ];
                     }
 
